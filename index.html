@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Home Dashboard</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.544.0/dist/umd/lucide.min.js"></script>
+    <!-- Tailwind Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#18181b',
+                        secondary: '#f2f4f6',
+                        accent: '#a7f3d0',
+                        neutral: {
+                            50: '#fafafa',
+                            100: '#f5f5f5',
+                            200: '#e5e5e5',
+                            300: '#d4d4d4',
+                            400: '#a3a3a3',
+                            500: '#737373',
+                            600: '#525252',
+                            700: '#404040',
+                            800: '#262626',
+                            900: '#171717',
+                            950: '#0a0a0a'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif']
+                    },
+                    animation: {
+                        'spin-slow': 'spin 10s linear infinite',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .glass-effect {
+                @apply bg-white/40 backdrop-blur-md rounded-full flex items-center px-3 py-1.5 shadow-sm text-xs font-medium text-neutral-800;
+            }
+            .card-hover {
+                @apply transition-all duration-300 hover:shadow-md;
+            }
+            .custom-scrollbar::-webkit-scrollbar {
+                display: none;
+            }
+            .custom-scrollbar {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            .toggle-bg {
+                @apply transition-colors duration-300;
+            }
+            .toggle-dot {
+                @apply w-4 h-4 rounded-full shadow-md transform transition-transform duration-300;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-neutral-800 flex items-center justify-center p-4 sm:p-8 font-sans overflow-hidden relative">
+    <!-- Abstract Background Elements -->
+    <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+
+    <!-- Main Glass Container Wrapper -->
+    <div class="w-full max-w-[1200px] bg-white/10 backdrop-blur-xl p-3 sm:p-4 rounded-[3rem] shadow-2xl border border-white/20">
+        
+        <!-- Inner Solid Dashboard Panel -->
+        <div class="bg-[#f2f4f6] rounded-[2.5rem] p-4 sm:p-6 flex flex-col md:flex-row gap-6 h-[90vh] md:h-[80vh] min-h-[700px] shadow-inner relative overflow-y-auto md:overflow-hidden custom-scrollbar">
+          
+            <!-- Sidebar Component -->
+            <div id="sidebar" class="w-20 bg-neutral-900 rounded-[2rem] flex flex-col items-center py-8 justify-between shadow-xl flex-shrink-0 z-10 relative"></div>
+
+            <div class="flex-1 flex flex-col gap-6 overflow-y-auto custom-scrollbar pb-4 pr-1">
+                <!-- Top Row Grid -->
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 shrink-0">
+                    <!-- Live Hero Card Component -->
+                    <div id="live-hero-card" class="col-span-1 lg:col-span-2 relative rounded-[2rem] overflow-hidden group shadow-sm bg-neutral-200 min-h-[300px] hover:shadow-md transition-shadow duration-300"></div>
+                    
+                    <!-- Rooms Card Component -->
+                    <div id="rooms-card" class="col-span-1 xl:col-span-1 bg-white rounded-[2rem] p-6 shadow-sm flex flex-col hover:shadow-md transition-shadow duration-300 min-h-[300px]"></div>
+                </div>
+
+                <!-- Bottom Row Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 shrink-0 pb-4">
+                    <!-- Vacuum Card Component -->
+                    <div id="vacuum-card" class="bg-white rounded-[2rem] p-6 relative shadow-sm hover:shadow-md transition-shadow duration-300 group min-h-[250px] flex flex-col justify-between"></div>
+                    
+                    <!-- Lamp Card Component -->
+                    <div id="lamp-card" class="bg-[#18181b] rounded-[2rem] p-6 text-white relative shadow-lg hover:shadow-xl transition-shadow duration-300 min-h-[250px] flex flex-col justify-between overflow-hidden"></div>
+                    
+                    <!-- Speaker Card Component -->
+                    <div id="speaker-card" class="bg-white rounded-[2rem] p-6 shadow-sm hover:shadow-md transition-shadow duration-300 min-h-[250px] flex flex-col justify-between"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        const state = {
+            sidebar: {
+                active: 'home'
+            },
+            rooms: {
+                activeRoom: 'Kitchen'
+            },
+            vacuum: {
+                isOn: true
+            },
+            lamp: {
+                isOn: true,
+                brightness: 70
+            },
+            speaker: {
+                isPlaying: true,
+                isOn: true
+            }
+        };
+
+        // --- Reusable UI Components ---
+        function createToggle(isOn, onToggle, dark = false) {
+            const toggle = document.createElement('div');
+            toggle.className = `w-11 h-6 flex items-center rounded-full p-1 cursor-pointer toggle-bg ${
+                isOn 
+                    ? (dark ? 'bg-white' : 'bg-neutral-900') 
+                    : (dark ? 'bg-neutral-700' : 'bg-gray-200')
+            }`;
+            
+            const dot = document.createElement('div');
+            dot.className = `toggle-dot ${
+                isOn ? 'translate-x-5' : 'translate-x-0'
+            } ${
+                isOn ? (dark ? 'bg-neutral-900' : 'bg-white') : 'bg-white'
+            }`;
+            
+            toggle.appendChild(dot);
+            toggle.addEventListener('click', onToggle);
+            
+            return toggle;
+        }
+
+        function createGlassPill(children, className = "") {
+            const pill = document.createElement('div');
+            pill.className = `glass-effect ${className}`;
+            
+            if (typeof children === 'string') {
+                pill.innerHTML = children;
+            } else {
+                pill.appendChild(children);
+            }
+            
+            return pill;
+        }
+
+        // --- Main Layout Components ---
+        function renderSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.innerHTML = '';
+            
+            const navItems = [
+                { id: 'grid', icon: 'grid' },
+                { id: 'home', icon: 'home' },
+                { id: 'light', icon: 'lightbulb' },
+                { id: 'music', icon: 'music' },
+                { id: 'thermo', icon: 'thermometer' },
+                { id: 'shield', icon: 'shield-check' },
+            ];
+
+            // Logo
+            const logo = document.createElement('div');
+            logo.className = 'text-white hover:text-gray-300 cursor-pointer transition-colors';
+            logo.innerHTML = `<i data-lucide="hexagon" size="28" stroke-width="2.5" class="text-white" fill="currentColor"></i>`;
+            sidebar.appendChild(logo);
+            
+            // Navigation
+            const navContainer = document.createElement('div');
+            navContainer.className = 'flex flex-col items-center gap-8 w-full';
+            
+            const mainLabel = document.createElement('div');
+            mainLabel.className = 'text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-[-10px]';
+            mainLabel.textContent = 'Main';
+            navContainer.appendChild(mainLabel);
+            
+            navItems.forEach(item => {
+                const navItem = document.createElement('div');
+                navItem.className = `relative cursor-pointer group flex justify-center w-full`;
+                navItem.innerHTML = `<i data-lucide="${item.icon}" size="22" class="transition-all duration-300 ${state.sidebar.active === item.id ? 'text-white' : 'text-neutral-500 group-hover:text-neutral-300'}"></i>`;
+                
+                if (state.sidebar.active === item.id) {
+                    const activeIndicator = document.createElement('div');
+                    activeIndicator.className = 'absolute -left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-white rounded-r-full';
+                    navItem.appendChild(activeIndicator);
+                }
+                
+                navItem.addEventListener('click', () => {
+                    state.sidebar.active = item.id;
+                    renderSidebar();
+                });
+                
+                navContainer.appendChild(navItem);
+            });
+            
+            // Divider
+            const divider = document.createElement('div');
+            divider.className = 'w-10 h-px bg-neutral-800 my-2';
+            navContainer.appendChild(divider);
+            
+            // Settings label
+            const settingsLabel = document.createElement('div');
+            settingsLabel.className = 'text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-[-10px]';
+            settingsLabel.textContent = 'Settings';
+            navContainer.appendChild(settingsLabel);
+            
+            // Settings button
+            const settingsBtn = document.createElement('div');
+            settingsBtn.className = 'cursor-pointer group';
+            settingsBtn.innerHTML = `<i data-lucide="settings" size="22" class="text-neutral-500 group-hover:text-neutral-300 transition-colors"></i>`;
+            navContainer.appendChild(settingsBtn);
+            
+            sidebar.appendChild(navContainer);
+
+            // User avatar
+            const avatar = document.createElement('div');
+            avatar.className = 'w-10 h-10 rounded-full overflow-hidden border-2 border-neutral-700 cursor-pointer hover:border-neutral-500 transition-colors';
+            avatar.innerHTML = `<img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&q=80" alt="User Avatar" class="w-full h-full object-cover">`;
+            sidebar.appendChild(avatar);
+            
+            lucide.createIcons();
+        }
+
+        function renderLiveHeroCard() {
+            const card = document.getElementById('live-hero-card');
+            card.innerHTML = '';
+            
+            // Background image
+            const img = document.createElement('img');
+            img.src = 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&q=80';
+            img.alt = 'Living Room';
+            img.className = 'absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105';
+            card.appendChild(img);
+            
+            // Top overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'absolute top-5 left-5 right-5 flex justify-between items-start';
+            
+            // Live indicator
+            const livePill = createGlassPill(`
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    <span class="font-bold">Live</span>
+                </div>
+            `);
+            overlay.appendChild(livePill);
+            
+            // Stats pill
+            const statsPill = createGlassPill(`
+                <div class="flex items-center gap-5 px-5 py-2 hidden sm:flex">
+                    <div class="flex items-center gap-1.5"><i data-lucide="thermometer-sun" size="14"></i> <span>24°C</span></div>
+                    <div class="flex items-center gap-1.5 text-neutral-600"><i data-lucide="droplets" size="14"></i> <span>50%</span></div>
+                    <div class="flex items-center gap-1.5 text-neutral-600"><i data-lucide="zap" size="14"></i> <span>350W</span></div>
+                    <div class="flex items-center gap-1.5 text-neutral-600"><i data-lucide="wind" size="14"></i> <span>80%</span></div>
+                </div>
+            `);
+            overlay.appendChild(statsPill);
+            
+            card.appendChild(overlay);
+            
+            lucide.createIcons();
+        }
+
+        function renderRoomsCard() {
+            const card = document.getElementById('rooms-card');
+            card.innerHTML = '';
+            
+            const rooms = [
+                { name: 'Bedroom', devices: 3, icon: 'bed' },
+                { name: 'Living room', devices: 2, icon: 'sofa' },
+                { name: 'Kitchen', devices: 5, icon: 'utensils' },
+                { name: 'Bathroom', devices: 1, icon: 'bath' },
+            ];
+
+            // Header
+            const header = document.createElement('div');
+            header.className = 'flex justify-between items-center mb-6';
+            header.innerHTML = `
+                <h2 class="text-xl font-bold text-neutral-900">Rooms</h2>
+                <i data-lucide="info" size="18" class="text-neutral-400 cursor-pointer hover:text-neutral-600"></i>
+            `;
+            card.appendChild(header);
+            
+            // Rooms list
+            const roomsList = document.createElement('div');
+            roomsList.className = 'flex flex-col gap-2 flex-1';
+            
+            rooms.forEach(room => {
+                const isActive = state.rooms.activeRoom === room.name;
+                const roomItem = document.createElement('div');
+                roomItem.className = `flex items-center justify-between p-3.5 rounded-2xl cursor-pointer transition-all duration-300 ${
+                    isActive ? 'bg-neutral-900 text-white shadow-lg scale-[1.02]' : 'bg-transparent text-neutral-800 hover:bg-neutral-50'
+                }`;
+                
+                roomItem.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center ${isActive ? 'bg-neutral-800' : 'bg-neutral-100'}">
+                            <i data-lucide="${room.icon}" size="18" class="${isActive ? 'text-white' : 'text-neutral-600'}"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-sm">${room.name}</div>
+                            <div class="${isActive ? 'text-neutral-400' : 'text-neutral-500'} text-xs">${room.devices} devices</div>
+                        </div>
+                    </div>
+                    <i data-lucide="chevron-right" size="18" class="${isActive ? 'text-neutral-400' : 'text-neutral-300'}"></i>
+                `;
+                
+                roomItem.addEventListener('click', () => {
+                    state.rooms.activeRoom = room.name;
+                    renderRoomsCard();
+                });
+                
+                roomsList.appendChild(roomItem);
+            });
+            
+            card.appendChild(roomsList);
+            
+            // Add room button
+            const addButton = document.createElement('button');
+            addButton.className = 'w-full mt-4 bg-neutral-900 text-white py-3.5 rounded-2xl text-xs font-bold tracking-widest hover:bg-neutral-800 transition-colors shadow-md';
+            addButton.textContent = '+ ADD ROOM';
+            card.appendChild(addButton);
+            
+            lucide.createIcons();
+        }
+
+        function renderVacuumCard() {
+            const card = document.getElementById('vacuum-card');
+            card.innerHTML = '';
+            
+            // Header
+            const header = document.createElement('div');
+            header.className = 'flex justify-between items-start z-10 relative';
+            header.innerHTML = `
+                <div>
+                    <h3 class="text-xl font-bold text-neutral-900">Bedroom</h3>
+                    <p class="text-xs text-neutral-400 mt-1">Robot vacuum cleaner</p>
+                </div>
+            `;
+            
+            // Toggle
+            const toggle = createToggle(state.vacuum.isOn, () => {
+                state.vacuum.isOn = !state.vacuum.isOn;
+                renderVacuumCard();
+            });
+            header.appendChild(toggle);
+            card.appendChild(header);
+
+            // Vacuum image
+            const imageContainer = document.createElement('div');
+            imageContainer.className = 'relative flex-1 flex items-center justify-center my-4 min-h-[140px]';
+            imageContainer.innerHTML = `
+                <div class="w-40 h-40 relative group-hover:scale-105 transition-transform duration-500">
+                    <img 
+                        src="https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" 
+                        alt="Robot Vacuum"
+                        class="w-full h-full object-cover rounded-full shadow-xl border-4 border-white"
+                        style="clip-path: circle(45% at 50% 50%)"
+                    />
+                    <!-- Status Lines -->
+                    <div class="absolute top-4 -left-10 bg-white/90 backdrop-blur shadow-sm px-2 py-1 rounded-md text-[10px] font-bold text-neutral-700 flex flex-col items-center">
+                        <span>70%</span>
+                        <span class="text-[8px] text-neutral-400 font-normal">Filter status</span>
+                    </div>
+                    <div class="absolute bottom-4 -right-12 bg-white/90 backdrop-blur shadow-sm px-2 py-1 rounded-md text-[10px] font-bold text-neutral-700 flex flex-col items-center">
+                        <span>10:00 AM</span>
+                        <span class="text-[8px] text-neutral-400 font-normal">Next cleaning</span>
+                    </div>
+                </div>
+            `;
+            card.appendChild(imageContainer);
+
+            // Stats
+            const statsContainer = document.createElement('div');
+            statsContainer.className = 'flex justify-between items-center bg-neutral-50 p-2 rounded-2xl';
+            statsContainer.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-neutral-900 flex items-center justify-center text-white"><i data-lucide="grid" size="12"></i></div>
+                    <div class="flex flex-col"><span class="text-xs font-bold">75 m²</span><span class="text-[9px] text-neutral-400">Area cleaned</span></div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-neutral-900 flex items-center justify-center text-white"><i data-lucide="thermometer" size="12"></i></div>
+                    <div class="flex flex-col"><span class="text-xs font-bold">30 min</span><span class="text-[9px] text-neutral-400">Cleaning time</span></div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-neutral-900 flex items-center justify-center text-white"><i data-lucide="zap" size="12"></i></div>
+                    <div class="flex flex-col"><span class="text-xs font-bold">80%</span><span class="text-[9px] text-neutral-400">Battery charge</span></div>
+                </div>
+            `;
+            card.appendChild(statsContainer);
+            
+            lucide.createIcons();
+        }
+
+        function renderLampCard() {
+            const card = document.getElementById('lamp-card');
+            card.innerHTML = '';
+            
+            // Header
+            const header = document.createElement('div');
+            header.className = 'flex justify-between items-start z-10 relative';
+            header.innerHTML = `
+                <h3 class="text-lg font-semibold">Living room</h3>
+                <i data-lucide="info" size="18" class="text-neutral-500 cursor-pointer hover:text-neutral-300"></i>
+            `;
+            card.appendChild(header);
+
+            // Lamp image
+            const imageContainer = document.createElement('div');
+            imageContainer.className = 'flex-1 flex items-center justify-between relative z-10 my-2';
+            imageContainer.innerHTML = `
+                <i data-lucide="chevron-left" size="20" class="text-neutral-600 hover:text-white cursor-pointer transition-colors"></i>
+                
+                <div class="flex flex-col items-center gap-2 group cursor-pointer">
+                    <div class="relative transition-all duration-500 ${state.lamp.isOn ? 'drop-shadow-[0_0_30px_rgba(167,243,208,0.4)]' : 'opacity-50'}">
+                        <img 
+                            src="https://images.unsplash.com/photo-1513506003901-1e6a229e9d15?w=400&q=80"
+                            alt="Smart Lamp"
+                            class="w-28 h-28 object-cover rounded-full border-2 border-neutral-800"
+                            style="clip-path: circle(50% at 50% 50%)"
+                        />
+                    </div>
+                </div>
+
+                <i data-lucide="chevron-right" size="20" class="text-neutral-600 hover:text-white cursor-pointer transition-colors"></i>
+            `;
+            card.appendChild(imageContainer);
+
+            // Lamp info
+            const infoContainer = document.createElement('div');
+            infoContainer.className = 'flex justify-between items-center mb-4 z-10';
+            infoContainer.innerHTML = `
+                <div>
+                    <div class="font-semibold text-sm">Smart Lamp</div>
+                    <div class="text-xs text-neutral-500">1 devices</div>
+                </div>
+            `;
+            
+            // Toggle
+            const toggle = createToggle(state.lamp.isOn, () => {
+                state.lamp.isOn = !state.lamp.isOn;
+                renderLampCard();
+            }, true);
+            infoContainer.appendChild(toggle);
+            card.appendChild(infoContainer);
+
+            // Brightness slider
+            const sliderContainer = document.createElement('div');
+            sliderContainer.className = 'h-14 bg-neutral-800 rounded-full flex items-center px-4 relative overflow-hidden group z-10 cursor-pointer';
+            
+            const sliderFill = document.createElement('div');
+            sliderFill.className = 'absolute left-0 top-0 bottom-0 bg-white transition-all duration-300 rounded-r-3xl';
+            sliderFill.style.width = `${state.lamp.brightness}%`;
+            sliderContainer.appendChild(sliderFill);
+            
+            const sliderContent = document.createElement('div');
+            sliderContent.className = 'relative z-10 flex justify-between w-full items-center pointer-events-none';
+            sliderContent.innerHTML = `
+                <i data-lucide="sun" size="18" class="${state.lamp.brightness > 10 ? 'text-neutral-900' : 'text-neutral-400'}"></i>
+                <span class="${state.lamp.brightness > 85 ? 'text-neutral-900' : 'text-neutral-400'} text-xs font-bold">
+                    ${state.lamp.brightness}%
+                </span>
+            `;
+            sliderContainer.appendChild(sliderContent);
+            
+            // Update brightness on click
+            sliderContainer.addEventListener('click', (e) => {
+                const rect = sliderContainer.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const width = rect.width;
+                const percentage = Math.round((x / width) * 100);
+                state.lamp.brightness = Math.max(0, Math.min(100, percentage));
+                renderLampCard();
+            });
+            
+            card.appendChild(sliderContainer);
+            
+            // Decorative glow background
+            if (state.lamp.isOn) {
+                const glow = document.createElement('div');
+                glow.className = 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none';
+                card.appendChild(glow);
+            }
+            
+            lucide.createIcons();
+        }
+
+        function renderSpeakerCard() {
+            const card = document.getElementById('speaker-card');
+            card.innerHTML = '';
+            
+            // Header
+            const header = document.createElement('div');
+            header.className = 'flex justify-between items-start';
+            header.innerHTML = `
+                <div>
+                    <h3 class="text-xl font-bold text-neutral-900">Speakers</h3>
+                    <p class="text-xs text-neutral-400 mt-1">Playing</p>
+                </div>
+            `;
+            
+            // Toggle
+            const toggle = createToggle(state.speaker.isOn, () => {
+                state.speaker.isOn = !state.speaker.isOn;
+                renderSpeakerCard();
+            });
+            header.appendChild(toggle);
+            card.appendChild(header);
+
+            // Music player
+            const playerContainer = document.createElement('div');
+            playerContainer.className = 'flex flex-col items-center justify-center my-4 flex-1';
+            
+            // Time display
+            const timeDisplay = document.createElement('div');
+            timeDisplay.className = 'text-xs font-semibold text-neutral-500 mb-4 tracking-widest';
+            timeDisplay.innerHTML = '0:34 <span class="text-neutral-300 mx-1">|</span> 2:27';
+            playerContainer.appendChild(timeDisplay);
+            
+            // Album art
+            const albumArt = document.createElement('div');
+            albumArt.className = 'relative group cursor-pointer';
+            albumArt.innerHTML = `
+                <svg class="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] -rotate-90">
+                    <circle cx="50%" cy="50%" r="48%" fill="none" stroke="#f3f4f6" stroke-width="3" />
+                    <circle 
+                        cx="50%" cy="50%" r="48%" 
+                        fill="none" 
+                        stroke="#18181b" 
+                        stroke-width="3" 
+                        stroke-dasharray="300" 
+                        stroke-dashoffset="240" 
+                        class="transition-all duration-1000"
+                    />
+                </svg>
+                <img 
+                    src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&q=80" 
+                    alt="Album Art" 
+                    class="w-24 h-24 rounded-full object-cover shadow-lg ${state.speaker.isPlaying ? 'animate-spin-slow' : ''}"
+                />
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-inner border border-gray-100"></div>
+            `;
+            playerContainer.appendChild(albumArt);
+            
+            card.appendChild(playerContainer);
+
+            // Controls
+            const controlsContainer = document.createElement('div');
+            controlsContainer.className = 'flex justify-between items-center px-2';
+            controlsContainer.innerHTML = `
+                <i data-lucide="shuffle" size="16" class="text-neutral-400 cursor-pointer hover:text-neutral-700 transition-colors"></i>
+                <div class="flex items-center gap-6">
+                    <i data-lucide="skip-back" size="20" class="text-neutral-800 cursor-pointer hover:text-black transition-colors" fill="currentColor"></i>
+                    <div class="play-button w-12 h-12 bg-neutral-900 rounded-full flex items-center justify-center text-white cursor-pointer hover:scale-105 transition-transform shadow-md">
+                        ${state.speaker.isPlaying 
+                            ? '<i data-lucide="pause" size="20" fill="currentColor"></i>' 
+                            : '<i data-lucide="play" size="20" fill="currentColor" class="ml-1"></i>'
+                        }
+                    </div>
+                    <i data-lucide="skip-forward" size="20" class="text-neutral-800 cursor-pointer hover:text-black transition-colors" fill="currentColor"></i>
+                </div>
+                <i data-lucide="volume-2" size="16" class="text-neutral-400 cursor-pointer hover:text-neutral-700 transition-colors"></i>
+            `;
+            card.appendChild(controlsContainer);
+            
+            // Play button click handler
+            const playButton = controlsContainer.querySelector('.play-button');
+            playButton.addEventListener('click', () => {
+                state.speaker.isPlaying = !state.speaker.isPlaying;
+                renderSpeakerCard();
+            });
+            
+            lucide.createIcons();
+        }
+
+        // --- Initialize App ---
+        function initApp() {
+            renderSidebar();
+            renderLiveHeroCard();
+            renderRoomsCard();
+            renderVacuumCard();
+            renderLampCard();
+            renderSpeakerCard();
+        }
+
+        // --- Enhanced Features ---
+        // Add device control API simulation
+        function simulateDeviceControl() {
+            // Simulate temperature changes
+            setInterval(() => {
+                const tempElement = document.querySelector('#live-hero-card i[data-lucide="thermometer-sun"] + span');
+                if (tempElement) {
+                    const currentTemp = parseInt(tempElement.textContent);
+                    const newTemp = currentTemp + Math.floor(Math.random() * 3) - 1; // Randomly ±1
+                    tempElement.textContent = `${Math.max(20, Math.min(28, newTemp))}°C`;
+                }
+            }, 10000);
+            
+            // Simulate power usage changes
+            setInterval(() => {
+                const powerElement = document.querySelector('#live-hero-card i[data-lucide="zap"] + span');
+                if (powerElement) {
+                    const currentPower = parseInt(powerElement.textContent);
+                    const newPower = currentPower + Math.floor(Math.random() * 50) - 25; // Randomly ±25
+                    powerElement.textContent = `${Math.max(200, Math.min(500, newPower))}W`;
+                }
+            }, 8000);
+        }
+
+        // Add keyboard shortcuts
+        function addKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                // Space bar to toggle play/pause
+                if (e.code === 'Space' && !e.target.matches('input, textarea')) {
+                    e.preventDefault();
+                    state.speaker.isPlaying = !state.speaker.isPlaying;
+                    renderSpeakerCard();
+                }
+                
+                // Arrow keys for brightness
+                if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+                    e.preventDefault();
+                    const change = e.code === 'ArrowUp' ? 5 : -5;
+                    state.lamp.brightness = Math.max(0, Math.min(100, state.lamp.brightness + change));
+                    renderLampCard();
+                }
+                
+                // Toggle switches with numbers
+                if (e.code >= 'Digit1' && e.code <= 'Digit3') {
+                    e.preventDefault();
+                    const deviceIndex = parseInt(e.code.charAt(5)) - 1;
+                    if (deviceIndex === 0) {
+                        state.vacuum.isOn = !state.vacuum.isOn;
+                        renderVacuumCard();
+                    } else if (deviceIndex === 1) {
+                        state.lamp.isOn = !state.lamp.isOn;
+                        renderLampCard();
+                    } else if (deviceIndex === 2) {
+                        state.speaker.isOn = !state.speaker.isOn;
+                        renderSpeakerCard();
+                    }
+                }
+            });
+        }
+
+        // --- Start App ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initApp();
+            simulateDeviceControl();
+            addKeyboardShortcuts();
+        });
+    </script>
+</body>
+</html>
